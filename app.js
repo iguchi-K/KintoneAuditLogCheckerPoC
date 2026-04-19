@@ -974,7 +974,7 @@ function renderChart(rows) {
     els.push(
       '<rect x="' + x.toFixed(1) + '" y="' + y + '" width="' + barW.toFixed(1) + '" height="' + bH + '"' +
       ' fill="' + color + '" opacity="0.82">' +
-      '<title>' + date + (wknd ? ' (土日)' : '') + ': ' + count + '件</title></rect>'
+      '<title>' + escHtml(date) + (wknd ? ' (土日)' : '') + ': ' + count + '件</title></rect>'
     );
 
     // 棒の上に件数ラベル
@@ -1171,5 +1171,8 @@ function escHtml(s) {
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 function escAttr(s) {
-  return String(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
