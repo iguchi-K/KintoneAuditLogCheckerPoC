@@ -307,6 +307,72 @@ const state = {
 };
 
 // =====================================================================
+// SVG ヘルパー
+// =====================================================================
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs, text) {
+  const el = document.createElementNS(SVG_NS, tag);
+  if (attrs) for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
+  if (text != null) el.textContent = String(text);
+  return el;
+}
+
+// =====================================================================
+// フィルター UI ヘルパー
+// =====================================================================
+function buildFilterHdr(title, badgeId) {
+  const hdr = document.createElement('div');
+  hdr.className = 'filter-header';
+  const titleSpan = document.createElement('span');
+  titleSpan.className = 'filter-title';
+  titleSpan.textContent = title;
+  const badge = document.createElement('span');
+  badge.className = 'filter-badge';
+  badge.id = badgeId;
+  badge.textContent = '0';
+  const chevron = document.createElement('span');
+  chevron.className = 'filter-chevron';
+  chevron.textContent = '▼';
+  hdr.append(titleSpan, badge, chevron);
+  return hdr;
+}
+
+function buildActionsRow(onToggle) {
+  const acts = document.createElement('div');
+  acts.className = 'filter-actions';
+  [['1', 'すべて選択'], ['0', 'すべて解除']].forEach(([all, label]) => {
+    const btn = document.createElement('button');
+    btn.className = 'link-btn';
+    btn.dataset.all = all;
+    btn.textContent = label;
+    btn.addEventListener('click', () => onToggle(all === '1'));
+    acts.appendChild(btn);
+  });
+  return acts;
+}
+
+function buildFilterItem(id, key, val, cnt, isChecked, onChange) {
+  const item = document.createElement('div');
+  item.className = 'filter-item';
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.id = id;
+  cb.dataset.key = key;
+  cb.dataset.val = val;
+  cb.checked = !!isChecked;
+  cb.addEventListener('change', onChange);
+  const lbl = document.createElement('label');
+  lbl.htmlFor = id;
+  lbl.textContent = val === '' ? '(空)' : val;
+  lbl.title = val;
+  const countSpan = document.createElement('span');
+  countSpan.className = 'fi-count';
+  countSpan.textContent = cnt;
+  item.append(cb, lbl, countSpan);
+  return item;
+}
+
+// =====================================================================
 // チャートデータ集計 (メインスレッド)
 // =====================================================================
 function buildChartData(rows) {
@@ -409,7 +475,7 @@ function updateCollapseStyles() {
 function buildTableHeader() {
   const table = document.getElementById('log-table');
   const tr    = document.getElementById('table-header');
-  tr.innerHTML = '';
+  tr.replaceChildren();
 
   // 新CSV読み込み時に折り畳み状態をリセット
   collapsedCols.clear();
@@ -421,7 +487,7 @@ function buildTableHeader() {
     colgroup = document.createElement('colgroup');
     table.prepend(colgroup);
   }
-  colgroup.innerHTML = '';
+  colgroup.replaceChildren();
 
   state.headers.forEach((h, i) => {
     // col 要素が列幅の唯一の真実
@@ -515,7 +581,7 @@ const COL_LABELS = {
 
 function buildFilterUI() {
   const container = document.getElementById('filters-container');
-  container.innerHTML = '';
+  container.replaceChildren();
 
   // 日付フィルター
   container.appendChild(buildSection('日付 (Date)', 'date', state.uniqueDates));
@@ -561,12 +627,7 @@ function buildCidrSection() {
   sec.className = 'filter-section';
   sec.id = 'fsec-cidr';
 
-  const hdr = document.createElement('div');
-  hdr.className = 'filter-header';
-  hdr.innerHTML =
-    '<span class="filter-title">CIDR</span>' +
-    '<span class="filter-badge" id="badge-cidr">0</span>' +
-    '<span class="filter-chevron">▼</span>';
+  const hdr = buildFilterHdr('CIDR', 'badge-cidr');
   hdr.addEventListener('click', () => sec.classList.toggle('open'));
   sec.appendChild(hdr);
 
@@ -608,20 +669,10 @@ function buildCidrSection() {
   });
   body.appendChild(maskRow);
 
-  // 全選択/解除
-  const acts = document.createElement('div');
-  acts.className = 'filter-actions';
-  acts.innerHTML =
-    '<button class="link-btn" data-all="1">すべて選択</button>' +
-    '<button class="link-btn" data-all="0">すべて解除</button>';
-  acts.querySelectorAll('.link-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const checked = btn.dataset.all === '1';
-      itemsDiv.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = checked; });
-      onFilterChange('cidr');
-    });
-  });
-  body.appendChild(acts);
+  body.appendChild(buildActionsRow(checked => {
+    itemsDiv.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = checked; });
+    onFilterChange('cidr');
+  }));
 
   const itemsDiv = document.createElement('div');
   itemsDiv.className = 'filter-items';
@@ -634,19 +685,12 @@ function buildCidrSection() {
 }
 
 function renderCidrItems(container) {
-  container.innerHTML = '';
+  container.replaceChildren();
   const cidrs = computeUniqueCidrs(state.cidrMask);
   cidrs.forEach(([cidr, cnt]) => {
     const id = 'cb-cidr-' + Math.random().toString(36).slice(2, 8);
-    const item = document.createElement('div');
-    item.className = 'filter-item';
     const isChecked = state.filters.cidrs.includes(cidr);
-    item.innerHTML =
-      '<input type="checkbox" id="' + id + '" data-key="cidr" data-val="' + escAttr(cidr) + '"' + (isChecked ? ' checked' : '') + '>' +
-      '<label for="' + id + '">' + escHtml(cidr) + '</label>' +
-      '<span class="fi-count">' + cnt + '</span>';
-    item.querySelector('input').addEventListener('change', () => onFilterChange('cidr'));
-    container.appendChild(item);
+    container.appendChild(buildFilterItem(id, 'cidr', cidr, cnt, isChecked, () => onFilterChange('cidr')));
   });
 }
 
@@ -655,12 +699,7 @@ function buildCountrySection() {
   sec.className = 'filter-section';
   sec.id = 'fsec-country';
 
-  const hdr = document.createElement('div');
-  hdr.className = 'filter-header';
-  hdr.innerHTML =
-    '<span class="filter-title">国 (Country)</span>' +
-    '<span class="filter-badge" id="badge-country">0</span>' +
-    '<span class="filter-chevron">▼</span>';
+  const hdr = buildFilterHdr('国 (Country)', 'badge-country');
   hdr.addEventListener('click', () => sec.classList.toggle('open'));
   sec.appendChild(hdr);
 
@@ -673,41 +712,24 @@ function buildCountrySection() {
 }
 
 function renderCountryBody(body) {
-  body.innerHTML = '';
+  body.replaceChildren();
   if (state.uniqueCountries.length === 0) {
     const note = document.createElement('p');
     note.style.cssText = 'font-size:11px;color:#aaa;text-align:center;padding:8px;';
     note.textContent = 'IPデータなし';
     body.appendChild(note);
   } else {
-    // 全選択/解除
-    const acts = document.createElement('div');
-    acts.className = 'filter-actions';
-    acts.innerHTML =
-      '<button class="link-btn" data-all="1">すべて選択</button>' +
-      '<button class="link-btn" data-all="0">すべて解除</button>';
-    acts.querySelectorAll('.link-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const checked = btn.dataset.all === '1';
-        document.querySelectorAll('#fitems-country input[type=checkbox]').forEach(cb => { cb.checked = checked; });
-        onFilterChange('country');
-      });
-    });
-    body.appendChild(acts);
+    body.appendChild(buildActionsRow(checked => {
+      document.querySelectorAll('#fitems-country input[type=checkbox]').forEach(cb => { cb.checked = checked; });
+      onFilterChange('country');
+    }));
 
     const items = document.createElement('div');
     items.className = 'filter-items';
     items.id = 'fitems-country';
     state.uniqueCountries.forEach(([country, cnt]) => {
       const id = 'cb-country-' + Math.random().toString(36).slice(2, 8);
-      const item = document.createElement('div');
-      item.className = 'filter-item';
-      item.innerHTML =
-        '<input type="checkbox" id="' + id + '" data-key="country" data-val="' + escAttr(country) + '">' +
-        '<label for="' + id + '">' + escHtml(country) + '</label>' +
-        '<span class="fi-count">' + cnt + '</span>';
-      item.querySelector('input').addEventListener('change', () => onFilterChange('country'));
-      items.appendChild(item);
+      items.appendChild(buildFilterItem(id, 'country', country, cnt, false, () => onFilterChange('country')));
     });
     body.appendChild(items);
   }
@@ -735,12 +757,7 @@ function buildSection(title, key, values) {
   sec.id = 'fsec-' + key;
 
   // ヘッダー
-  const hdr = document.createElement('div');
-  hdr.className = 'filter-header';
-  hdr.innerHTML =
-    '<span class="filter-title">' + escHtml(title) + '</span>' +
-    '<span class="filter-badge" id="badge-' + key + '">0</span>' +
-    '<span class="filter-chevron">▼</span>';
+  const hdr = buildFilterHdr(title, 'badge-' + key);
   hdr.addEventListener('click', () => sec.classList.toggle('open'));
   sec.appendChild(hdr);
 
@@ -763,22 +780,10 @@ function buildSection(title, key, values) {
     body.appendChild(inp);
   }
 
-  // 全選択/解除
-  const acts = document.createElement('div');
-  acts.className = 'filter-actions';
-  acts.innerHTML =
-    '<button class="link-btn" data-key="' + key + '" data-all="1">すべて選択</button>' +
-    '<button class="link-btn" data-key="' + key + '" data-all="0">すべて解除</button>';
-  acts.querySelectorAll('.link-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const checked = btn.dataset.all === '1';
-      document.querySelectorAll('#fitems-' + key + ' input[type=checkbox]').forEach(cb => {
-        cb.checked = checked;
-      });
-      onFilterChange(key);
-    });
-  });
-  body.appendChild(acts);
+  body.appendChild(buildActionsRow(checked => {
+    document.querySelectorAll('#fitems-' + key + ' input[type=checkbox]').forEach(cb => { cb.checked = checked; });
+    onFilterChange(key);
+  }));
 
   // チェックボックスリスト
   const items = document.createElement('div');
@@ -786,16 +791,8 @@ function buildSection(title, key, values) {
   items.id = 'fitems-' + key;
 
   values.forEach(([val, cnt]) => {
-    const id  = 'cb-' + key + '-' + Math.random().toString(36).slice(2, 8);
-    const lbl = val === '' ? '(空)' : val;
-    const item = document.createElement('div');
-    item.className = 'filter-item';
-    item.innerHTML =
-      '<input type="checkbox" id="' + id + '" data-key="' + key + '" data-val="' + escAttr(val) + '">' +
-      '<label for="' + id + '" title="' + escAttr(val) + '">' + escHtml(lbl) + '</label>' +
-      '<span class="fi-count">' + cnt + '</span>';
-    item.querySelector('input').addEventListener('change', () => onFilterChange(key));
-    items.appendChild(item);
+    const id = 'cb-' + key + '-' + Math.random().toString(36).slice(2, 8);
+    items.appendChild(buildFilterItem(id, key, val, cnt, false, () => onFilterChange(key)));
   });
 
   body.appendChild(items);
@@ -908,6 +905,7 @@ function resetAllFilters() {
 // =====================================================================
 function renderChart(rows) {
   const svg = document.getElementById('chart-svg');
+  svg.replaceChildren();
 
   // rows から日付ごとのカウントを直接集計
   const countMap = {};
@@ -926,30 +924,27 @@ function renderChart(rows) {
   const cH = H - MB - MT;
 
   if (chartData.length === 0) {
-    svg.innerHTML = '<text x="500" y="64" text-anchor="middle" fill="#ccc" font-size="14">データなし</text>';
+    svg.appendChild(svgEl('text', { x: 500, y: 64, 'text-anchor': 'middle', fill: '#ccc', 'font-size': 14 }, 'データなし'));
     return;
   }
 
   // maxCount: spread を使わず forEach で安全に計算
   let maxCount = 1;
-  chartData.forEach(function(d) {
-    const v = d[1];
-    if (typeof v === 'number' && v > maxCount) maxCount = v;
+  chartData.forEach(d => {
+    if (typeof d[1] === 'number' && d[1] > maxCount) maxCount = d[1];
   });
 
   const n = chartData.length;
   const slotW = cW / n;
   const barW  = Math.max(2, slotW * 0.72);
 
-  const els = [];
-
   // X軸ベースライン
-  els.push('<line x1="' + ML + '" y1="' + (H - MB) + '" x2="' + (W - MR) + '" y2="' + (H - MB) + '" stroke="#ddd" stroke-width="1"/>');
+  svg.appendChild(svgEl('line', { x1: ML, y1: H - MB, x2: W - MR, y2: H - MB, stroke: '#ddd', 'stroke-width': 1 }));
 
   // バー
   const labelStep = n <= 50 ? 1 : Math.ceil(n / 50);
 
-  chartData.forEach(function(entry, i) {
+  chartData.forEach((entry, i) => {
     const date  = entry[0];
     const count = entry[1];
     if (!date || typeof count !== 'number') return;
@@ -970,37 +965,33 @@ function renderChart(rows) {
     const wknd = dObj.getDay() === 0 || dObj.getDay() === 6;
     const color = wknd ? '#f4a22b' : '#4285f4';
 
-    // バー本体
-    els.push(
-      '<rect x="' + x.toFixed(1) + '" y="' + y + '" width="' + barW.toFixed(1) + '" height="' + bH + '"' +
-      ' fill="' + color + '" opacity="0.82">' +
-      '<title>' + escHtml(date) + (wknd ? ' (土日)' : '') + ': ' + count + '件</title></rect>'
-    );
+    // バー本体 (title 要素で tooltip)
+    const rect = svgEl('rect', { x: x.toFixed(1), y, width: barW.toFixed(1), height: bH, fill: color, opacity: '0.82' });
+    rect.appendChild(svgEl('title', {}, date + (wknd ? ' (土日)' : '') + ': ' + count + '件'));
+    svg.appendChild(rect);
 
     // 棒の上に件数ラベル
     if (bH >= 12) {
-      els.push(
-        '<text x="' + (x + barW / 2).toFixed(1) + '" y="' + (y - 3) + '"' +
-        ' text-anchor="middle" font-size="11" fill="' + color + '" font-weight="600">' + count + '</text>'
-      );
+      svg.appendChild(svgEl('text', {
+        x: (x + barW / 2).toFixed(1), y: y - 3,
+        'text-anchor': 'middle', 'font-size': 11, fill: color, 'font-weight': 600
+      }, count));
     }
 
     // X軸日付ラベル
     if (i % labelStep === 0) {
-      els.push(
-        '<text x="' + (x + barW / 2).toFixed(1) + '" y="' + (H - MB + 14) + '"' +
-        ' text-anchor="middle" font-size="10" fill="#999">' + pm + '/' + pd + '</text>'
-      );
+      svg.appendChild(svgEl('text', {
+        x: (x + barW / 2).toFixed(1), y: H - MB + 14,
+        'text-anchor': 'middle', 'font-size': 10, fill: '#999'
+      }, pm + '/' + pd));
     }
   });
 
   // 凡例
-  els.push(`<rect x="${W - MR - 82}" y="6" width="10" height="10" fill="#4285f4"/>`);
-  els.push(`<text x="${W - MR - 69}" y="15" font-size="11" fill="#666">平日</text>`);
-  els.push(`<rect x="${W - MR - 40}" y="6" width="10" height="10" fill="#f4a22b"/>`);
-  els.push(`<text x="${W - MR - 27}" y="15" font-size="11" fill="#666">土日</text>`);
-
-  svg.innerHTML = els.join('');
+  svg.appendChild(svgEl('rect', { x: W - MR - 82, y: 6, width: 10, height: 10, fill: '#4285f4' }));
+  svg.appendChild(svgEl('text', { x: W - MR - 69, y: 15, 'font-size': 11, fill: '#666' }, '平日'));
+  svg.appendChild(svgEl('rect', { x: W - MR - 40, y: 6, width: 10, height: 10, fill: '#f4a22b' }));
+  svg.appendChild(svgEl('text', { x: W - MR - 27, y: 15, 'font-size': 11, fill: '#666' }, '土日'));
 }
 
 // =====================================================================
@@ -1030,7 +1021,7 @@ function renderTable() {
   pagination.style.display  = rows.length > PAGE_SIZE ? 'flex' : 'none';
 
   const tbody = document.getElementById('table-body');
-  tbody.innerHTML = '';
+  tbody.replaceChildren();
 
   pageRows.forEach(row => {
     const tr = document.createElement('tr');
@@ -1047,14 +1038,11 @@ function renderTable() {
       const td = document.createElement('td');
       td.title = cell || '';
       // Result 列 (index 7) はタグ表示
-      if (i === 7) {
-        if (cell === 'SUCCESS') {
-          td.innerHTML = '<span class="tag-s">SUCCESS</span>';
-        } else if (cell === 'FAILED') {
-          td.innerHTML = '<span class="tag-f">FAILED</span>';
-        } else {
-          td.textContent = cell || '';
-        }
+      if (i === 7 && (cell === 'SUCCESS' || cell === 'FAILED')) {
+        const span = document.createElement('span');
+        span.className = cell === 'SUCCESS' ? 'tag-s' : 'tag-f';
+        span.textContent = cell;
+        td.appendChild(span);
       } else {
         td.textContent = cell || '';
       }
@@ -1093,7 +1081,7 @@ function updateStatus() {
   const resetBtn = document.getElementById('reset-btn');
 
   if (!state.loaded) {
-    txt.innerHTML = 'CSVファイルを開いてください';
+    txt.textContent = 'CSVファイルを開いてください';
     resetBtn.style.display = 'none';
     return;
   }
@@ -1105,12 +1093,17 @@ function updateStatus() {
                     state.filters.dates.length > 0 || state.filters.hours.length > 0 ||
                     Object.values(state.filters.columns).some(v => v.length > 0);
 
+  txt.replaceChildren();
+  const hl = document.createElement('span');
+  hl.className = 'hl';
+
   if (!hasFilter) {
-    txt.innerHTML = `<span class="hl">${total.toLocaleString()}</span> 件のログを表示中`;
+    hl.textContent = total.toLocaleString();
+    txt.append(hl, ' 件のログを表示中');
     resetBtn.style.display = 'none';
   } else {
-    txt.innerHTML =
-      `<span class="hl">${showing.toLocaleString()}</span> 件 / 全 ${total.toLocaleString()} 件 (フィルター適用中)`;
+    hl.textContent = showing.toLocaleString();
+    txt.append(hl, ' 件 / 全 ' + total.toLocaleString() + ' 件 (フィルター適用中)');
     resetBtn.style.display = '';
   }
 }
@@ -1164,15 +1157,3 @@ function hideRightOverlay() {
     document.body.style.userSelect = '';
   });
 })();
-
-function escHtml(s) {
-  return String(s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-function escAttr(s) {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
