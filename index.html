@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kintone 監査ログ分析</title>
+  <script src="ip2country.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="header">
+  <h1>Kintone 監査ログ分析</h1>
+  <div id="header-right">
+    <span class="enc-label">文字コード:</span>
+    <select id="encoding-select" class="encoding-sel">
+      <option value="shift-jis">Shift-JIS</option>
+      <option value="utf-8">UTF-8</option>
+    </select>
+    <button class="btn btn-white" id="open-btn">CSVを開く</button>
+    <input type="file" id="file-input" accept=".csv,.CSV">
+  </div>
+</div>
+
+<div id="main">
+  <!-- 左パネル -->
+  <div id="left-panel">
+    <div class="section-label">クイック分析</div>
+    <button class="quick-btn" id="btn-weekend">
+      <span class="quick-icon">📅</span>土日ログイン
+    </button>
+    <button class="quick-btn" id="btn-failed">
+      <span class="quick-icon">⚠️</span>ログイン失敗
+    </button>
+    <button class="quick-btn" id="btn-download">
+      <span class="quick-icon">⬇️</span>Downloadログ
+    </button>
+    <div class="divider"></div>
+    <div class="section-label" style="display:flex;align-items:center;justify-content:space-between;">
+      <span>フィルター</span>
+      <button id="reset-btn" style="display:none;">リセット</button>
+    </div>
+    <div id="filters-container">
+      <p style="color:#ccc;font-size:11px;text-align:center;padding:20px 8px;">CSVを読み込むと<br>フィルターが表示されます</p>
+    </div>
+  </div>
+
+  <div id="resize-handle"></div>
+
+  <!-- 右パネル -->
+  <div id="right-panel">
+    <div id="right-overlay"><div class="spinner"></div></div>
+    <div id="status-bar">
+      <span id="status-text">CSVファイルを開いてください</span>
+    </div>
+    <div id="chart-area">
+      <div id="chart-label">ログ件数 (日別)  ■ 平日  ■ 土日</div>
+      <svg id="chart-svg" viewBox="0 0 1000 128" preserveAspectRatio="none"></svg>
+    </div>
+    <div id="table-area">
+      <div id="empty-state">
+        <div class="ei">📂</div>
+        <p>CSVファイルを開いてください</p>
+      </div>
+      <table id="log-table" style="display:none;">
+        <thead><tr id="table-header"></tr></thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+    <div id="pagination" style="display:none;">
+      <button class="page-btn" id="prev-btn">◀ 前へ</button>
+      <span id="page-info"></span>
+      <button class="page-btn" id="next-btn">次へ ▶</button>
+    </div>
+  </div>
+</div>
+
+<div id="loading">
+  <div class="loading-box">
+    <div class="spinner"></div>
+    <p id="loading-text">読み込み中...</p>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
